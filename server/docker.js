@@ -169,7 +169,6 @@ class DockerHost {
                 caPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCA);
                 certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
                 keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
-                console.log(certPath)
                 certFound = (await fsExists(caPath)) &
                     (await fsExists(certPath)) &
                     (await fsExists(keyPath));
@@ -190,7 +189,6 @@ class DockerHost {
                 cert,
             };
         }
-        
 
         return {
             ...baseOptions,
