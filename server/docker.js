@@ -152,12 +152,35 @@ class DockerHost {
         let certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
         let keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
 
-        if (
-            dockerType === "tcp" &&
-            (await fsExists(caPath)) &&
-            (await fsExists(certPath)) &&
-            (await fsExists(keyPath))
-        ) {
+        let certFound = false;
+
+        if (dockerType === "tcp") {
+
+            certFound = (await fsExists(caPath)) &
+                        (await fsExists(certPath)) &
+                        (await fsExists(keyPath));
+
+            // if not found look for 'parent' directories
+            // eg: host1.production.domain.tld -> production.domain.tld -> domain.tld
+            while (!certFound && dirName.split('.').length > 2) {
+                let hostParts = dirName.split('.');
+                hostParts.splice(0, 1);
+                dirName = hostParts.join('.');
+                caPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCA);
+                certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
+                keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
+                console.log(certPath)
+                certFound = (await fsExists(caPath)) &
+                    (await fsExists(certPath)) &
+                    (await fsExists(keyPath));
+                            }
+            if (!certFound) {
+                // fallback to "default" directory
+                dirName = 'default';
+                caPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCA);
+                certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
+                keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
+            }
             let ca = await fsAsync.readFile(caPath);
             let key = await fsAsync.readFile(keyPath);
             let cert = await fsAsync.readFile(certPath);
@@ -166,57 +189,8 @@ class DockerHost {
                 key,
                 cert,
             };
-        } else if (
-            dockerType === "tcp" &&
-            dirName.split('.').length>2 &&
-            (
-                !(await fsExists(caPath)) ||
-                !(await fsExists(certPath)) ||
-                !(await fsExists(keyPath))
-            )
-        ) {
-            // look for 'group' directories
-            // eg: host1.production.domain.tld -> production.domain.tld -> domain.tld
-            let certFound = false;
-            while(dirName.split('.').length>2 && !certFound) {
-                let hostParts = dirName.split('.');
-                hostParts.splice(0,1);
-                dirName = hostParts.join('.');
-                caPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCA);
-                certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
-                keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
-                if ((await fsExists(caPath)) &&
-                    (await fsExists(certPath)) &&
-                    (await fsExists(keyPath))) 
-                {
-                    certFound = true;
-                    let ca = await fsAsync.readFile(caPath);
-                    let key = await fsAsync.readFile(keyPath);
-                    let cert = await fsAsync.readFile(certPath);
-                    certOptions = {
-                        ca,
-                        key,
-                        cert,
-                    };
-                }
-            }
-            if (!certFound) {
-                // fallback to "global" directory
-                dirName = 'global';
-                caPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCA);
-                certPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameCert);
-                keyPath = path.join(Database.dockerTLSDir, dirName, DockerHost.CertificateFileNameKey);
-                let ca = await fsAsync.readFile(caPath);
-                let key = await fsAsync.readFile(keyPath);
-                let cert = await fsAsync.readFile(certPath);
-                certOptions = {
-                    ca,
-                    key,
-                    cert,
-                };
-
-            }
         }
+        
 
         return {
             ...baseOptions,
